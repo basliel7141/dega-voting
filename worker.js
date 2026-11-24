@@ -12,21 +12,14 @@ async function tg(method, body, env) {
   );
 
   const data = await response.json();
-
-  if (!data.ok) {
-    throw new Error(data.description || "Telegram API error");
-  }
-
+  if (!data.ok) throw new Error(data.description || "Telegram API error");
   return data.result;
 }
 
 function html(value) {
   return String(value ?? "").replace(/[&<>"']/g, c => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
+    "&": "&amp;", "<": "&lt;", ">": "&gt;",
+    '"': "&quot;", "'": "&#39;"
   })[c]);
 }
 
@@ -48,32 +41,21 @@ async function callbackAnswer(id, text, env) {
 
 async function createPoll(message, env) {
   const chatId = message.chat.id;
-
-  const input = message.text.replace(
-    /^\/newpoll(?:@\w+)?\s*/i,
-    ""
-  );
-
+  const input = message.text.replace(/^\/newpoll(?:@\w+)?\s*/i, "");
   const parts = input.split("|").map(x => x.trim()).filter(Boolean);
 
   if (parts.length < 3) {
-    await reply(
-      chatId,
+    await reply(chatId,
       "የPoll አጠቃቀም፦\n\n" +
-      "<code>/newpoll ጥያቄ | ምርጫ 1 | ምርጫ 2</code>",
-      env
-    );
+      "<code>/newpoll ጥያቄ | ምርጫ 1 | ምርጫ 2</code>", env);
     return;
   }
 
   const question = parts[0];
   const options = parts.slice(1);
 
-  if (
-    question.length > 250 ||
-    options.length > 8 ||
-    options.some(x => x.length > 100)
-  ) {
+  if (question.length > 250 || options.length > 8 ||
+      options.some(x => x.length > 100)) {
     await reply(chatId, "ጥያቄው ወይም ምርጫዎቹ ከተፈቀደው ርዝመት በላይ ናቸው።", env);
     return;
   }
@@ -99,8 +81,7 @@ async function createPoll(message, env) {
   try {
     const posted = await tg("sendMessage", {
       chat_id: CHANNEL_ID,
-      text:
-        `📊 <b>${html(question)}</b>\n\n` +
+      text: `📊 <b>${html(question)}</b>\n\n` +
         "👇 ምርጫዎን ይጫኑ።\n\n" +
         "🔒 ድምፅዎ በግል ይመዘገባል።",
       parse_mode: "HTML",
@@ -111,14 +92,11 @@ async function createPoll(message, env) {
       "UPDATE polls SET message_id = ? WHERE id = ?"
     ).bind(String(posted.message_id), pollId).run();
 
-    await reply(
-      chatId,
+    await reply(chatId,
       `✅ Poll በChannel ላይ ተለጥፏል።\n` +
       `Poll ID: <code>${pollId}</code>\n\n` +
       `ውጤት: <code>/results ${pollId}</code>\n` +
-      `መዝጋት: <code>/close ${pollId}</code>`,
-      env
-    );
+      `መዝጋት: <code>/close ${pollId}</code>`, env);
 
   } catch (error) {
     await env.DB.prepare(
@@ -169,7 +147,6 @@ async function showResults(chatId, pollId, env) {
       const username = row.telegram_username
         ? ` (@${html(row.telegram_username)})`
         : "";
-
       output += `${count}. ${html(row.telegram_name || "Unknown")}${username}\n`;
     }
   }
@@ -180,7 +157,13 @@ async function showResults(chatId, pollId, env) {
 
   output += `\n👥 <b>ጠቅላላ ድምፅ: ${total.total}</b>`;
 
-  await reply(chatId, output, env);
+  if (output.length <= 4000) {
+    await reply(chatId, output, env);
+  } else {
+    await reply(chatId,
+      `📊 <b>${html(poll.question)}</b>\nዝርዝሩ ረጅም ስለሆነ በአጭር ውጤት ብቻ ይታያል።\n` +
+      `👥 ጠቅላላ ድምፅ: ${total.total}`, env);
+  }
 }
 
 async function handleMessage(message, env) {
@@ -198,15 +181,12 @@ async function handleMessage(message, env) {
   const chatId = message.chat.id;
 
   if (text.startsWith("/start")) {
-    await reply(
-      chatId,
+    await reply(chatId,
       "👋 <b>DEGA BET Voting Bot</b>\n\n" +
       "አዲስ Poll፦\n" +
       "<code>/newpoll ጥያቄ | ምርጫ 1 | ምርጫ 2</code>\n\n" +
       "ውጤት፦ <code>/results 1</code>\n" +
-      "መዝጋት፦ <code>/close 1</code>",
-      env
-    );
+      "መዝጋት፦ <code>/close 1</code>", env);
     return;
   }
 
@@ -216,28 +196,22 @@ async function handleMessage(message, env) {
   }
 
   const resultsMatch = text.match(/^\/results(?:@\w+)?\s+(\d+)/);
-
   if (resultsMatch) {
     await showResults(chatId, Number(resultsMatch[1]), env);
     return;
   }
 
   const closeMatch = text.match(/^\/close(?:@\w+)?\s+(\d+)/);
-
   if (closeMatch) {
     const pollId = Number(closeMatch[1]);
-
     const result = await env.DB.prepare(
       "UPDATE polls SET status = 'closed' WHERE id = ? AND status = 'active'"
     ).bind(pollId).run();
 
-    await reply(
-      chatId,
+    await reply(chatId,
       result.meta.changes
         ? `🔒 Poll ${pollId} ተዘግቷል።`
-        : "Poll አልተገኘም ወይም ተዘግቷል።",
-      env
-    );
+        : "Poll አልተገኘም ወይም ተዘግቷል።", env);
     return;
   }
 
@@ -270,8 +244,7 @@ async function handleVote(query, env) {
   }
 
   const user = query.from;
-  const name = [user.first_name, user.last_name]
-    .filter(Boolean).join(" ");
+  const name = [user.first_name, user.last_name].filter(Boolean).join(" ");
 
   try {
     await env.DB.prepare(`
@@ -287,7 +260,6 @@ async function handleVote(query, env) {
     ).run();
 
     await callbackAnswer(query.id, "✅ ድምፅዎ ተመዝግቧል።", env);
-
   } catch (error) {
     const existing = await env.DB.prepare(
       "SELECT id FROM votes WHERE poll_id = ? AND telegram_user_id = ?"
@@ -312,7 +284,8 @@ export default {
     if (request.method === "GET" && url.pathname === "/set-webhook") {
       try {
         const result = await tg("setWebhook", {
-          url: `${url.origin}/webhook`
+          url: `${url.origin}/webhook`,
+          secret_token: env.WEBHOOK_SECRET
         }, env);
 
         return Response.json({ ok: true, result });
@@ -325,6 +298,15 @@ export default {
     }
 
     if (request.method === "POST" && url.pathname === "/webhook") {
+      const receivedSecret = request.headers.get(
+        "X-Telegram-Bot-Api-Secret-Token"
+      );
+
+      if (!env.WEBHOOK_SECRET ||
+          receivedSecret !== env.WEBHOOK_SECRET) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+
       try {
         const update = await request.json();
 
