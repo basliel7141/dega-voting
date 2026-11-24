@@ -1,0 +1,9 @@
+
+name = "dega-voting"
+main = "worker.js"
+compatibility_date = "2026-11-24"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "dega_voting_db"
+database_id = "fe3faf05-db3c-440c-969e-6a32cc83eb32"
