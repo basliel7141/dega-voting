@@ -1,6 +1,6 @@
 
 const CHANNEL_ID = "@degabet";
-const BOT_USERNAME = "Dega1_bot";
+const BOT_USERNAME = "DegaBetVotingBot";
 
 async function tg(method, body, env) {
   const response = await fetch(
